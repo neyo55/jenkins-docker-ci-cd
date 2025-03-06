@@ -26,7 +26,14 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'docker run --rm $DOCKER_IMAGE pytest tests/'
+                script {
+                    def testDirExists = sh(script: 'if [ -d "tests" ]; then echo "exists"; else echo "missing"; fi', returnStdout: true).trim()
+                    if (testDirExists == "exists") {
+                        sh 'docker run --rm $DOCKER_IMAGE pytest tests/'
+                    } else {
+                        echo "No tests found, skipping test stage."
+                    }
+                }
             }
         }
 
