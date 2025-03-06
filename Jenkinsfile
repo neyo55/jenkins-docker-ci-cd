@@ -6,9 +6,15 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                sh 'rm -rf *'
+            }
+        }
+
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url:  'https://github.com/neyo55/jenkins-docker-ci-cd.git'
+                git branch: 'main', url: 'https://github.com/neyo55/jenkins-docker-ci-cd.git'
             }
         }
 
