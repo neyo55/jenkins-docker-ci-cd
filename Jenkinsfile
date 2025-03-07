@@ -47,7 +47,11 @@ pipeline {
 
         stage('Deploy to Test Environment') {
             steps {
-                sh 'docker run -d -p 5000:5000 --name test_container $DOCKER_IMAGE:latest'
+                sh '''
+                    docker stop test_container || true
+                    docker rm test_container || true
+                    docker run -d -p 5000:5000 --name test_container neyo55/jenkins-docker-ci-cd:latest
+                '''
             }
         }
     }
