@@ -83,7 +83,7 @@ pipeline {
         failure {
             mail to: 'kbneyo55@gmail.com',
                  subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                 body: "Oops! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Please check the logs: ${env.BUILD_URL}",
+                 body: "Oops! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Please check the logs: ${env.BUILD_URL}"
         }
     }
 }
