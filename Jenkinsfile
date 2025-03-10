@@ -35,7 +35,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }        
 
         stage('Push to Docker Hub') {
             steps {
@@ -50,7 +50,25 @@ pipeline {
                 sh '''
                     docker stop test_container || true
                     docker rm test_container || true
-                    docker run -d -p 5000:5000 --name test_container neyo55/jenkins-docker-ci-cd:latest
+                    docker run -d -p 5000:5000 --name test_container $DOCKER_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Docker Cleanup') {
+            steps {
+                sh '''
+                    echo "Removing unused containers..."
+                    docker container prune -f
+
+                    echo "Removing dangling images..."
+                    docker image prune -f
+
+                    echo "Removing unused networks..."
+                    docker network prune -f
+
+                    echo "Removing unused volumes..."
+                    docker volume prune -f
                 '''
             }
         }
@@ -58,15 +76,14 @@ pipeline {
 
     post {
         success {
-            emailext subject: "Jenkins Build SUCCESS: ${env.JOB_NAME}",
-                     body: "The build was successful. Check it here: ${env.BUILD_URL}",
-                     to: "kbneyo55@gmail.com"
+            mail to: 'kbneyo55@gmail.com',
+                 subject: "Jenkins Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "Good job! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} was successful! Check it out here: ${env.BUILD_URL}"
         }
-
         failure {
-            emailext subject: "Jenkins Build FAILED: ${env.JOB_NAME}",
-                     body: "The build failed. Check logs here: ${env.BUILD_URL}",
-                     to: "kbneyo55@gmail.com"
+            mail to: 'kbneyo55@gmail.com',
+                 subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "Oops! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Please check the logs: ${env.BUILD_URL}",
         }
     }
 }
