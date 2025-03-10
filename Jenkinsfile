@@ -55,4 +55,18 @@ pipeline {
             }
         }
     }
+
+    post {
+        success {
+            emailext subject: "Jenkins Build SUCCESS: ${env.JOB_NAME}",
+                     body: "The build was successful. Check it here: ${env.BUILD_URL}",
+                     to: "kbneyo55@gmail.com"
+        }
+
+        failure {
+            emailext subject: "Jenkins Build FAILED: ${env.JOB_NAME}",
+                     body: "The build failed. Check logs here: ${env.BUILD_URL}",
+                     to: "kbneyo55@gmail.com"
+        }
+    }
 }
