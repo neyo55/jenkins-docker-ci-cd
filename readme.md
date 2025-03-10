@@ -15,6 +15,7 @@ We will:
    - Deploy the **latest version of the app**
    - Automate the entire process **using GitHub & Jenkins**
    - Configure and set email notifications **using Mailutils & Jenkins Email Notification**
+   - Implement **automatic Docker cleanup** to free up space
 
 ---
 
@@ -562,10 +563,164 @@ sudo systemctl restart jenkins
 So, by configuring email notifications in Jenkins, you will always stay informed about your **CI/CD pipeline's health** without manually checking logs.
 
 ---
-## **Conclusion**
-**Your CI/CD Pipeline is now fully automated!**  
-**Every GitHub push triggers Jenkins to build, test, and deploy the app.**
 
-**Receievs Email notifications each time you trigger a build.**
+# **Step 10: Implement Docker Cleanup to Free Up Space**
+To **prevent disk space issues**, it's important to **clean up old containers and images**. This enhancement will **remove unused Docker resources** automatically after each build.
+
+---
+
+## **1️⃣ Why is Docker Cleanup Important?**
+- Over time, **unused containers, images, and volumes** accumulate.
+- These **consume disk space**, leading to **Jenkins build failures** due to **insufficient storage**.
+- Running **regular cleanup commands** helps **free up space** and **keep the system efficient**.
+
+---
+
+## **2️⃣ Add a Cleanup Stage to Jenkins Pipeline**
+To **automate cleanup**, modify the `Jenkinsfile` by adding a **"Docker Cleanup" stage** after deployment:
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "your-dockerhub-username/jenkins-docker-ci-cd"
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                sh 'rm -rf *'
+            }
+        }
+
+        stage('Clone Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-github-username/jenkins-docker-ci-cd.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:latest .'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                script {
+                    def testDirExists = sh(script: 'if [ -d "tests" ]; then echo "exists"; else echo "missing"; fi', returnStdout: true).trim()
+                    if (testDirExists == "exists") {
+                        sh 'docker run --rm $DOCKER_IMAGE pytest tests/'
+                    } else {
+                        echo "No tests found, skipping test stage."
+                    }
+                }
+            }
+        }        
+
+        stage('Push to Docker Hub') {
+            steps {
+                withDockerRegistry([credentialsId: 'docker-hub-cred', url: '']) {
+                    sh 'docker push $DOCKER_IMAGE:latest'
+                }
+            }
+        }
+
+        stage('Deploy to Test Environment') {
+            steps {
+                sh '''
+                    docker stop test_container || true
+                    docker rm test_container || true
+                    docker run -d -p 5000:5000 --name test_container $DOCKER_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Docker Cleanup') {
+            steps {
+                sh '''
+                    echo "Removing unused containers..."
+                    docker container prune -f
+
+                    echo "Removing dangling images..."
+                    docker image prune -f
+
+                    echo "Removing unused networks..."
+                    docker network prune -f
+
+                    echo "Removing unused volumes..."
+                    docker volume prune -f
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            mail to: 'your-email@example.com',
+                 subject: "Jenkins Build Success: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "Good job! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} was successful! Check it out here: ${env.BUILD_URL}"
+        }
+        failure {
+            mail to: 'your-email@example.com',
+                 subject: "Jenkins Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                 body: "Oops! The Jenkins build for ${env.JOB_NAME} #${env.BUILD_NUMBER} failed. Please check the logs: ${env.BUILD_URL}"
+        }
+    }
+}
+```
+
+---
+
+## **3️⃣ Explanation of Cleanup Commands**
+1️⃣ **Remove Unused Containers**
+```bash
+docker container prune -f
+```
+🔹 Deletes **stopped** containers to **free up space**.
+
+2️⃣ **Remove Dangling Images**
+```bash
+docker image prune -f
+```
+🔹 Removes **intermediate/unused images** that are not tagged.
+
+3️⃣ **Remove Unused Networks**
+```bash
+docker network prune -f
+```
+🔹 Deletes **Docker networks** that are no longer used.
+
+4️⃣ **Remove Unused Volumes**
+```bash
+docker volume prune -f
+```
+🔹 Cleans up **detached storage volumes**.
+
+---
+
+## **4️⃣ Test the Pipeline & Verify Cleanup**
+1️⃣ **Trigger a new Jenkins build**  
+2️⃣ After deployment, Jenkins will **run the cleanup stage**  
+3️⃣ Check the Jenkins console logs for:
+```
+Removing unused containers...
+Removing dangling images...
+Removing unused networks...
+Removing unused volumes...
+```
+4️⃣ **Verify disk space usage** after cleanup:
+```bash
+docker system df
+```
+---
+## **Conclusion**
+- The **CI/CD Pipeline** is now fully **automated!**  
+- Every GitHub push triggers **Jenkins to build, test, and deploy the app.**
+
+- Receives **Email notifications** each time you trigger a **build.**
+- This enhancement **prevents storage issues** and **keeps the server clean**.
+- **Jenkins will automatically remove old Docker resources** after every build.
 
 ---
